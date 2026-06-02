@@ -70,7 +70,7 @@ export default function ChatPage() {
     setIsLoading(true);
     
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/retrieve', {
+      const response = await fetch('https://divyanshu8210-il-pcsr-backend.hf.space/api/v1/retrieve', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

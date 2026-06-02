@@ -25,7 +25,7 @@ function DetailContent() {
       setError(null);
       const endpoint = type === 'statute' ? 'statutes' : 'precedents';
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/v1/${endpoint}/${id}`);
+        const response = await fetch(`https://divyanshu8210-il-pcsr-backend.hf.space/api/v1/${endpoint}/${id}`);
         if (response.ok) {
           const data = await response.json();
           setDocumentData(data);
