@@ -42,12 +42,14 @@ function extractTitleAndExcerpt(text: string) {
 }
 
 export default function ChatPage() {
+  const [activeTab, setActiveTab] = useState<'text' | 'pdf'>('text');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<LegalResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
   const [pdfFileName, setPdfFileName] = useState('');
+  const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Restore search query and results on mount
@@ -55,7 +57,12 @@ export default function ChatPage() {
     const savedQuery = localStorage.getItem('legal_search_query');
     const savedResults = localStorage.getItem('legal_search_results');
     if (savedQuery) {
-      setQuery(savedQuery);
+      if (savedQuery.startsWith('PDF: ')) {
+        setActiveTab('pdf');
+        setPdfFileName(savedQuery.replace('PDF: ', ''));
+      } else {
+        setQuery(savedQuery);
+      }
     }
     if (savedResults) {
       try {
@@ -138,9 +145,47 @@ export default function ChatPage() {
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    performSearch(query);
+    if (activeTab === 'text') {
+      performSearch(query);
+    } else {
+      performPdfSearch();
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type === 'application/pdf') {
+        setSelectedPdf(file);
+        setPdfFileName(file.name);
+      } else {
+        alert('Please select a valid PDF file');
+      }
+    }
   };
 
   const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,6 +285,7 @@ export default function ChatPage() {
   };
 
   const handleQuickSearch = (topic: string) => {
+    setActiveTab('text');
     setQuery(topic);
     performSearch(topic);
   };
@@ -266,49 +312,50 @@ export default function ChatPage() {
       {/* Main Chat Area */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search Form */}
-        <form onSubmit={handleSearch} className="mb-8">
+        <form onSubmit={handleSubmit} className="mb-8">
           <div className="flex flex-col gap-3">
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-1 mb-4 bg-muted/60 p-1 rounded-lg w-fit border border-border/50">
               <button
                 type="button"
                 onClick={() => {
-                  setQuery('');
-                  clearPdfSelection();
+                  setActiveTab('text');
                 }}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  !selectedPdf
-                    ? 'bg-primary text-white'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                className={`px-4 py-2 rounded-md font-medium text-sm transition-all duration-200 ${
+                  activeTab === 'text'
+                    ? 'bg-background text-foreground shadow-sm font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
                 }`}
               >
                 Text Query
               </button>
               <button
                 type="button"
-                onClick={() => setQuery('')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  selectedPdf
-                    ? 'bg-primary text-white'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                onClick={() => {
+                  setActiveTab('pdf');
+                }}
+                className={`px-4 py-2 rounded-md font-medium text-sm transition-all duration-200 ${
+                  activeTab === 'pdf'
+                    ? 'bg-background text-foreground shadow-sm font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
                 }`}
               >
                 PDF Upload
               </button>
             </div>
 
-            {!selectedPdf ? (
+            {activeTab === 'text' ? (
               <>
                 <textarea
                   placeholder="Enter your legal query in detail (e.g., inheritance rights, property dispute, criminal case facts)..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="w-full min-h-[160px] text-base p-4 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y placeholder:text-muted-foreground/60 leading-relaxed"
+                  className="w-full min-h-[160px] text-base p-4 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y placeholder:text-muted-foreground/60 leading-relaxed font-sans shadow-inner"
                 />
                 <div className="flex justify-end">
                   <Button
                     type="submit"
                     size="lg"
-                    className="bg-primary hover:bg-primary/90 text-white gap-2 font-bold px-6 py-5 rounded-lg shadow-sm"
+                    className="bg-primary hover:bg-primary/90 text-white gap-2 font-bold px-6 py-5 rounded-lg shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                     disabled={isLoading || !query.trim()}
                   >
                     <Send className="w-4 h-4" />
@@ -318,56 +365,83 @@ export default function ChatPage() {
               </>
             ) : (
               <div className="flex flex-col gap-4">
-                <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 bg-primary/5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-6 h-6 text-primary" />
-                      <div>
-                        <p className="font-semibold text-foreground text-sm">{pdfFileName}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Ready for legal document analysis
-                        </p>
+                {!selectedPdf ? (
+                  <div
+                    onDragEnter={handleDragEnter}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-4 ${
+                      isDragActive
+                        ? 'border-primary bg-primary/5 scale-[0.99] shadow-md'
+                        : 'border-border/80 hover:border-primary/50 hover:bg-muted/20 hover:scale-[1.005]'
+                    }`}
+                  >
+                    <div className="p-4 rounded-full bg-primary/10 text-primary transition-transform duration-300 hover:rotate-12">
+                      <Upload className="w-8 h-8 animate-bounce" />
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-foreground">
+                        Drag & drop your legal document here
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        or click to browse files from your device
+                      </p>
+                    </div>
+                    <div className="text-xs text-muted-foreground border-t border-border/50 pt-3 w-full max-w-xs">
+                      Supports scanned or text-based PDFs (up to 20MB)
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    <div className="border border-border/80 rounded-xl p-6 bg-card shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-primary/10 text-primary">
+                            <FileText className="w-8 h-8" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground text-base max-w-[280px] sm:max-w-md md:max-w-lg truncate">{pdfFileName}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {(selectedPdf.size / 1024).toFixed(1)} KB • Ready for legal document analysis
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearPdfSelection}
+                          className="hover:bg-destructive/10 text-destructive hover:text-destructive hover:scale-105 transition-all duration-200"
+                        >
+                          <X className="w-5 h-5" />
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearPdfSelection}
-                      className="hover:bg-destructive/10"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                    
+                    <div className="flex justify-end gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="gap-2 hover:bg-accent hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Change PDF
+                      </Button>
+                      <Button
+                        type="submit"
+                        size="lg"
+                        className="bg-primary hover:bg-primary/90 text-white gap-2 font-bold px-6 py-5 rounded-lg shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                        disabled={isLoading}
+                      >
+                        <Send className="w-4 h-4" />
+                        Analyze PDF
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={handlePdfFileChange}
-                  className="hidden"
-                />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="gap-2"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Change PDF
-                  </Button>
-                  <Button
-                    type="button"
-                    size="lg"
-                    onClick={performPdfSearch}
-                    className="bg-primary hover:bg-primary/90 text-white gap-2 font-bold px-6 py-5 rounded-lg shadow-sm"
-                    disabled={isLoading}
-                  >
-                    <Send className="w-4 h-4" />
-                    Analyze PDF
-                  </Button>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -547,6 +621,7 @@ export default function ChatPage() {
                   setHasSearched(false);
                   setResults([]);
                   clearPdfSelection();
+                  setActiveTab('text');
                   localStorage.removeItem('legal_search_query');
                   localStorage.removeItem('legal_search_results');
                 }}
@@ -571,6 +646,8 @@ export default function ChatPage() {
                 setQuery('');
                 setHasSearched(false);
                 setResults([]);
+                clearPdfSelection();
+                setActiveTab('text');
                 localStorage.removeItem('legal_search_query');
                 localStorage.removeItem('legal_search_results');
               }}
