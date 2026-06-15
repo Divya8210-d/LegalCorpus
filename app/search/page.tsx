@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Send, Scale, FileText, Briefcase } from 'lucide-react';
+import { ArrowLeft, Send, Scale, FileText, Briefcase, Upload, X } from 'lucide-react';
 
 interface LegalResult {
   type: 'statute' | 'case';
@@ -46,6 +46,9 @@ export default function ChatPage() {
   const [results, setResults] = useState<LegalResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
+  const [pdfFileName, setPdfFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Restore search query and results on mount
   useEffect(() => {
@@ -140,6 +143,102 @@ export default function ChatPage() {
     performSearch(query);
   };
 
+  const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      setSelectedPdf(file);
+      setPdfFileName(file.name);
+    } else {
+      alert('Please select a valid PDF file');
+      setSelectedPdf(null);
+      setPdfFileName('');
+    }
+  };
+
+  const performPdfSearch = async () => {
+    if (!selectedPdf) {
+      alert('Please select a PDF file first');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedPdf);
+      formData.append('top_k', '5');
+      formData.append('alpha', '0.7');
+      formData.append('run_llm', 'true');
+
+      const response = await fetch(
+        'https://divyanshu8210-il-pcsr-backend.hf.space/api/v1/retrieve/pdf',
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Server returned status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Filter out empty responses
+      const validStatutes = (data.statutes || []).filter((s: any) => s.text && s.text.trim().length > 0);
+      const validPrecedents = (data.precedents || []).filter((p: any) => p.text && p.text.trim().length > 0);
+
+      // Map live Statutes
+      const statutesList = validStatutes.map((s: any) => {
+        const parsed = extractTitleAndExcerpt(s.text);
+        return {
+          type: 'statute' as const,
+          id: s.id,
+          title: parsed.title,
+          citation: `Lexical: ${(s.lexical_score * 100).toFixed(0)}% | Semantic: ${(s.semantic_score * 100).toFixed(0)}%`,
+          relevance: Math.round(s.relevance_score * 100),
+          description: parsed.excerpt
+        };
+      });
+
+      // Map live Precedents
+      const precedentsList = validPrecedents.map((p: any) => {
+        const parsed = extractTitleAndExcerpt(p.text);
+        return {
+          type: 'case' as const,
+          id: p.id,
+          title: parsed.title,
+          citation: `Lexical: ${(p.lexical_score * 100).toFixed(0)}% | Semantic: ${(p.semantic_score * 100).toFixed(0)}%${p.llm_verified ? ' | LLM Verified' : ''}`,
+          relevance: Math.round(p.relevance_score * 100),
+          description: parsed.excerpt
+        };
+      });
+
+      const combinedResults = [...statutesList, ...precedentsList];
+      setResults(combinedResults);
+      setHasSearched(true);
+
+      // Cache search state
+      localStorage.setItem('legal_search_query', `PDF: ${selectedPdf.name}`);
+      localStorage.setItem('legal_search_results', JSON.stringify(combinedResults));
+    } catch (err) {
+      console.error(err);
+      alert('Error processing PDF. Please try again.');
+      setResults([]);
+      setHasSearched(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const clearPdfSelection = () => {
+    setSelectedPdf(null);
+    setPdfFileName('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleQuickSearch = (topic: string) => {
     setQuery(topic);
     performSearch(topic);
@@ -169,28 +268,122 @@ export default function ChatPage() {
         {/* Search Form */}
         <form onSubmit={handleSearch} className="mb-8">
           <div className="flex flex-col gap-3">
-            <textarea
-              placeholder="Enter your legal query in detail (e.g., inheritance rights, property dispute, criminal case facts)..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full min-h-[160px] text-base p-4 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y placeholder:text-muted-foreground/60 leading-relaxed"
-            />
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                size="lg"
-                className="bg-primary hover:bg-primary/90 text-white gap-2 font-bold px-6 py-5 rounded-lg shadow-sm"
-                disabled={isLoading}
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  clearPdfSelection();
+                }}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  !selectedPdf
+                    ? 'bg-primary text-white'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
               >
-                <Send className="w-4 h-4" />
-                Search Candidates
-              </Button>
+                Text Query
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  selectedPdf
+                    ? 'bg-primary text-white'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                PDF Upload
+              </button>
             </div>
+
+            {!selectedPdf ? (
+              <>
+                <textarea
+                  placeholder="Enter your legal query in detail (e.g., inheritance rights, property dispute, criminal case facts)..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full min-h-[160px] text-base p-4 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y placeholder:text-muted-foreground/60 leading-relaxed"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="bg-primary hover:bg-primary/90 text-white gap-2 font-bold px-6 py-5 rounded-lg shadow-sm"
+                    disabled={isLoading || !query.trim()}
+                  >
+                    <Send className="w-4 h-4" />
+                    Search Candidates
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 bg-primary/5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-6 h-6 text-primary" />
+                      <div>
+                        <p className="font-semibold text-foreground text-sm">{pdfFileName}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Ready for legal document analysis
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearPdfSelection}
+                      className="hover:bg-destructive/10"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={handlePdfFileChange}
+                  className="hidden"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Change PDF
+                  </Button>
+                  <Button
+                    type="button"
+                    size="lg"
+                    onClick={performPdfSearch}
+                    className="bg-primary hover:bg-primary/90 text-white gap-2 font-bold px-6 py-5 rounded-lg shadow-sm"
+                    disabled={isLoading}
+                  >
+                    <Send className="w-4 h-4" />
+                    Analyze PDF
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </form>
 
+        {/* PDF File Input (Hidden) */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf"
+          onChange={handlePdfFileChange}
+          className="hidden"
+        />
+
         {/* Quick Search Suggestions */}
-        {!hasSearched && (
+        {!hasSearched && !selectedPdf && !query && (
           <div className="mb-8">
             <p className="text-sm text-muted-foreground mb-4 font-semibold">Try searching for:</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -252,7 +445,7 @@ export default function ChatPage() {
               <div>
                 <h2 className="text-2xl font-bold text-foreground">Search Results</h2>
                 <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                  Query: <span className="font-semibold text-foreground">"{query}"</span>
+                  Query: <span className="font-semibold text-foreground">"{selectedPdf ? `PDF: ${pdfFileName}` : query}"</span>
                 </p>
               </div>
               <Badge variant="outline" className="text-lg px-3 py-1">
@@ -353,6 +546,7 @@ export default function ChatPage() {
                   setQuery('');
                   setHasSearched(false);
                   setResults([]);
+                  clearPdfSelection();
                   localStorage.removeItem('legal_search_query');
                   localStorage.removeItem('legal_search_results');
                 }}
