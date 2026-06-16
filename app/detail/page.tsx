@@ -12,6 +12,7 @@ function DetailContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   const type = searchParams.get('type');
+  const urlTitle = searchParams.get('title');
 
   const [loading, setLoading] = useState(true);
   const [documentData, setDocumentData] = useState<{ text: string; paragraphs: [string, string][] } | null>(null);
@@ -56,6 +57,7 @@ function DetailContent() {
 
   // Helper to extract a nice title from text
   const getDocTitle = () => {
+    if (urlTitle) return urlTitle;
     if (!documentData || !documentData.text) return type === 'statute' ? 'Statute Section' : 'Precedent Judgment';
     const lines = documentData.text.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length === 0) return type === 'statute' ? 'Statute Section' : 'Precedent Judgment';

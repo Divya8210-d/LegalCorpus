@@ -109,7 +109,7 @@ export default function ChatPage() {
         return {
           type: 'statute' as const,
           id: s.id,
-          title: parsed.title,
+          title: s.title || parsed.title,
           citation: `Lexical: ${(s.lexical_score * 100).toFixed(0)}% | Semantic: ${(s.semantic_score * 100).toFixed(0)}%`,
           relevance: Math.round(s.relevance_score * 100),
           description: parsed.excerpt
@@ -122,7 +122,7 @@ export default function ChatPage() {
         return {
           type: 'case' as const,
           id: p.id,
-          title: parsed.title,
+          title: p.title || parsed.title,
           citation: `Lexical: ${(p.lexical_score * 100).toFixed(0)}% | Semantic: ${(p.semantic_score * 100).toFixed(0)}%${p.llm_verified ? ' | LLM Verified' : ''}`,
           relevance: Math.round(p.relevance_score * 100),
           description: parsed.excerpt
@@ -239,7 +239,7 @@ export default function ChatPage() {
         return {
           type: 'statute' as const,
           id: s.id,
-          title: parsed.title,
+          title: s.title || parsed.title,
           citation: `Lexical: ${(s.lexical_score * 100).toFixed(0)}% | Semantic: ${(s.semantic_score * 100).toFixed(0)}%`,
           relevance: Math.round(s.relevance_score * 100),
           description: parsed.excerpt
@@ -252,7 +252,7 @@ export default function ChatPage() {
         return {
           type: 'case' as const,
           id: p.id,
-          title: parsed.title,
+          title: p.title || parsed.title,
           citation: `Lexical: ${(p.lexical_score * 100).toFixed(0)}% | Semantic: ${(p.semantic_score * 100).toFixed(0)}%${p.llm_verified ? ' | LLM Verified' : ''}`,
           relevance: Math.round(p.relevance_score * 100),
           description: parsed.excerpt
@@ -544,7 +544,7 @@ export default function ChatPage() {
                       .map((result, idx) => (
                         <Link 
                           key={idx} 
-                          href={`/detail?type=statute&id=${result.id}`} 
+                          href={`/detail?type=statute&id=${result.id}&title=${encodeURIComponent(result.title)}`} 
                           className="block group"
                         >
                           <Card className="p-5 border-l-4 border-l-primary hover:border-primary/50 hover:shadow-md transition-all duration-200 cursor-pointer">
@@ -585,7 +585,7 @@ export default function ChatPage() {
                       .map((result, idx) => (
                         <Link 
                           key={idx} 
-                          href={`/detail?type=case&id=${result.id}`} 
+                          href={`/detail?type=case&id=${result.id}&title=${encodeURIComponent(result.title)}`} 
                           className="block group"
                         >
                           <Card className="p-5 border-l-4 border-l-secondary hover:border-secondary/50 hover:shadow-md transition-all duration-200 cursor-pointer">
