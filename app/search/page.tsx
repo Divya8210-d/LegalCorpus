@@ -129,7 +129,7 @@ export default function ChatPage() {
         };
       });
 
-      const combinedResults = [...statutesList, ...precedentsList];
+      const combinedResults = [...precedentsList, ...statutesList];
       setResults(combinedResults);
       setHasSearched(true);
 
@@ -259,7 +259,7 @@ export default function ChatPage() {
         };
       });
 
-      const combinedResults = [...statutesList, ...precedentsList];
+      const combinedResults = [...precedentsList, ...statutesList];
       setResults(combinedResults);
       setHasSearched(true);
 
@@ -529,47 +529,6 @@ export default function ChatPage() {
 
             {/* Results by Category */}
             <div className="space-y-8">
-              {/* Relevant Statutes/Sections */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <FileText className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-semibold text-foreground">Relevant Statutes & Sections</h3>
-                </div>
-                <div className="space-y-3">
-                  {results.filter((r) => r.type === 'statute').length === 0 ? (
-                    <div className="text-sm text-muted-foreground p-4 bg-muted/40 rounded-lg">No matching statutory provisions found.</div>
-                  ) : (
-                    results
-                      .filter((r) => r.type === 'statute')
-                      .map((result, idx) => (
-                        <Link 
-                          key={idx} 
-                          href={`/detail?type=statute&id=${result.id}&title=${encodeURIComponent(result.title)}`} 
-                          className="block group"
-                        >
-                          <Card className="p-5 border-l-4 border-l-primary hover:border-primary/50 hover:shadow-md transition-all duration-200 cursor-pointer">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <h4 className="font-bold text-foreground group-hover:text-primary transition-colors text-[15px] leading-snug">{result.title}</h4>
-                                {result.citation && (
-                                  <p className="text-xs text-muted-foreground mt-1.5 font-mono">{result.citation}</p>
-                                )}
-                                <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{result.description}</p>
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <div className="inline-flex items-center justify-center w-14 h-14 bg-accent/10 rounded-lg border border-accent/10">
-                                  <span className="text-lg font-bold text-accent">{result.relevance}%</span>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground mt-1 font-bold">Relevance</p>
-                              </div>
-                            </div>
-                          </Card>
-                        </Link>
-                      ))
-                  )}
-                </div>
-              </div>
-
               {/* Relevant Prior Cases */}
               <div>
                 <div className="flex items-center gap-2 mb-4">
@@ -600,6 +559,47 @@ export default function ChatPage() {
                               <div className="text-right flex-shrink-0">
                                 <div className="inline-flex items-center justify-center w-14 h-14 bg-secondary/10 rounded-lg border border-secondary/10">
                                   <span className="text-lg font-bold text-secondary">{result.relevance}%</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-1 font-bold">Relevance</p>
+                              </div>
+                            </div>
+                          </Card>
+                        </Link>
+                      ))
+                  )}
+                </div>
+              </div>
+
+              {/* Relevant Statutes/Sections */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold text-foreground">Relevant Statutes & Sections</h3>
+                </div>
+                <div className="space-y-3">
+                  {results.filter((r) => r.type === 'statute').length === 0 ? (
+                    <div className="text-sm text-muted-foreground p-4 bg-muted/40 rounded-lg">No matching statutory provisions found.</div>
+                  ) : (
+                    results
+                      .filter((r) => r.type === 'statute')
+                      .map((result, idx) => (
+                        <Link 
+                          key={idx} 
+                          href={`/detail?type=statute&id=${result.id}&title=${encodeURIComponent(result.title)}`} 
+                          className="block group"
+                        >
+                          <Card className="p-5 border-l-4 border-l-primary hover:border-primary/50 hover:shadow-md transition-all duration-200 cursor-pointer">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <h4 className="font-bold text-foreground group-hover:text-primary transition-colors text-[15px] leading-snug">{result.title}</h4>
+                                {result.citation && (
+                                  <p className="text-xs text-muted-foreground mt-1.5 font-mono">{result.citation}</p>
+                                )}
+                                <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{result.description}</p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="inline-flex items-center justify-center w-14 h-14 bg-accent/10 rounded-lg border border-accent/10">
+                                  <span className="text-lg font-bold text-accent">{result.relevance}%</span>
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-1 font-bold">Relevance</p>
                               </div>
